@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Config Management - LLM Gateway</title>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+        }
+        .error-logs-container {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .error-logs-header {
+            font-weight: bold;
+            color: #721c24;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .error-logs-content {
+            background-color: #fff;
+            border: 1px solid #f5c6cb;
+            border-radius: 3px;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .close-error-logs {
+            background: none;
+            border: none;
+            color: #721c24;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        h1 {
+            text-align: center;
+            color: #444;
+        }
+        .model-list, .provider-list {
+            list-style: none;
+            padding: 0;
+        }
+        .model-item {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        .model-header {
+            font-weight: bold;
+            font-size: 1.2em;
+            cursor: move;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        .model-header .handle {
+            margin-right: 10px;
+            color: #999;
+        }
+        .provider-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #eee;
+            background: #fff;
+            margin-top: 5px;
+            border-radius: 4px;
+            cursor: move;
+            flex-wrap: wrap;
+        }
+        .provider-name {
+            font-family: monospace;
+            flex-grow: 1;
+            min-width: 150px;
+            word-break: break-all;
+        }
+        .usage-stats {
+            font-size: 0.8em;
+            color: #666;
+            margin-right: 15px;
+            min-width: 180px;
+            text-align: right;
+            word-break: break-all;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .health-check-btn {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 12px;
+            margin: 0 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            min-width: 60px;
+        }
+        .health-check-btn:hover {
+            background-color: #45a049;
+        }
+        .health-check-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .health-status {
+            font-size: 12px;
+            margin-left: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            display: none;
+        }
+        .health-status.healthy {
+            background-color: #d4edda;
+            color: #155724;
+            display: inline-block;
+        }
+        .health-status.unhealthy {
+            background-color: #f8d7da;
+            color: #721c24;
+            display: inline-block;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        #status {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            opacity: 0;
+            transition: opacity 0.5s;
+            font-size: 14px;
+        }
+        #status.show {
+            opacity: 1;
+        }
+        @media screen and (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 15px;
+            }
+            .provider-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .provider-name {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            .usage-stats {
+                width: 100%;
+                text-align: left;
+                margin-bottom: 10px;
+                margin-right: 0;
+            }
+            .model-header {
+                font-size: 1.1em;
+            }
+        }
+        @media screen and (max-width: 480px) {
+            .container {
+                padding: 10px;
+            }
+            .model-item {
+                padding: 10px;
+            }
+            .provider-item {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1>Model Config Management</h1>
+        <button id="resetRateLimitsBtn" style="background-color: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px;">
+            重置速率限制
+        </button>
+    </div>
+    <div class="error-logs-container" id="errorLogsContainer">
+        <div class="error-logs-header">
+            <span>最近的错误请求日志</span>
+            <button class="close-error-logs" id="closeErrorLogs">&times;</button>
+        </div>
+        <div class="error-logs-content" id="errorLogsContent"></div>
+    </div>
+    <div id="model-list-container"></div>
+</div>
+<div id="status">Configuration saved!</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const modelListContainer = document.getElementById('model-list-container');
+        let currentConfig = {};
+
+        // Fetch config from backend
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                if (!response.ok) throw new Error('Failed to load config');
+                currentConfig = await response.json();
+                renderConfig(currentConfig);
+            } catch (error) {
+                console.error(error);
+                modelListContainer.innerHTML = '<p style="color: red;">Error loading configuration.</p>';
+            }
+        }
+
+        // Render the configuration into HTML
+        function renderConfig(config) {
+            const modelList = document.createElement('ul');
+            modelList.id = 'model-list';
+            modelList.className = 'model-list';
+
+            for (const modelName in config) {
+                const modelItem = document.createElement('li');
+                modelItem.className = 'model-item';
+                modelItem.dataset.modelName = modelName;
+
+                const modelHeader = document.createElement('div');
+                modelHeader.className = 'model-header';
+                modelHeader.innerHTML = `<span class="handle">☰</span> ${modelName}`;
+                modelItem.appendChild(modelHeader);
+
+                const providerList = document.createElement('ul');
+                providerList.className = 'provider-list';
+                providerList.dataset.modelName = modelName;
+
+                const providers = config[modelName];
+                for (const providerName in providers) {
+                    const providerData = providers[providerName];
+                    // 获取provider的alias（如果存在）
+                    const providerAlias = providerData.alias || modelName;
+                    
+                    const providerItem = document.createElement('li');
+                    providerItem.className = 'provider-item';
+                    providerItem.dataset.modelName = modelName;  // 存储modelName
+                    providerItem.dataset.providerName = providerName;
+                    providerItem.dataset.providerAlias = providerAlias;  // 将alias作为data属性存储
+
+                    const providerNameSpan = document.createElement('span');
+                    providerNameSpan.className = 'provider-name';
+                    providerNameSpan.textContent = `${providerAlias}@${providerName}`;
+
+                    const usageStatsSpan = document.createElement('span');
+                    usageStatsSpan.className = 'usage-stats';
+                    usageStatsSpan.id = `usage-${providerName}`;
+                    usageStatsSpan.textContent = 'Nolimt&Loading...';
+                    
+                    // 健康检测按钮
+                    const healthCheckBtn = document.createElement('button');
+                    healthCheckBtn.className = 'health-check-btn';
+                    healthCheckBtn.id = `health-check-${modelName}-${providerName}`;  // 使用modelName和providerName组合作为唯一ID
+                    healthCheckBtn.textContent = '检测';
+                    healthCheckBtn.addEventListener('click', () => {
+                        // 使用当前provider的alias作为model名
+                        checkHealth(providerName, providerAlias);
+                    });
+                    
+                    // 健康状态显示
+                    const healthStatusSpan = document.createElement('span');
+                    healthStatusSpan.className = 'health-status';
+                    healthStatusSpan.id = `health-${modelName}-${providerName}`;
+                    
+                    const switchLabel = document.createElement('label');
+                    switchLabel.className = 'switch';
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.checked = providerData.enable === true;
+                    checkbox.addEventListener('change', () => saveConfig());
+                    
+                    const slider = document.createElement('span');
+                    slider.className = 'slider';
+
+                    switchLabel.appendChild(checkbox);
+                    switchLabel.appendChild(slider);
+                    
+                    providerItem.appendChild(providerNameSpan);
+                    providerItem.appendChild(usageStatsSpan);
+                    providerItem.appendChild(switchLabel);
+                    providerItem.appendChild(healthCheckBtn);
+                    providerItem.appendChild(healthStatusSpan);
+                    providerList.appendChild(providerItem);
+                }
+                modelItem.appendChild(providerList);
+                modelList.appendChild(modelItem);
+            }
+            modelListContainer.innerHTML = '';
+            modelListContainer.appendChild(modelList);
+            
+            initializeSortable();
+        }
+
+        // Initialize SortableJS for drag-and-drop
+        function initializeSortable() {
+            const modelListEl = document.getElementById('model-list');
+            if (modelListEl) {
+                new Sortable(modelListEl, {
+                    animation: 150,
+                    handle: '.model-header',
+                    onEnd: () => saveConfig()
+                });
+            }
+
+            document.querySelectorAll('.provider-list').forEach(providerListEl => {
+                new Sortable(providerListEl, {
+                    animation: 150,
+                    onEnd: () => saveConfig()
+                });
+            });
+        }
+
+        // Read the DOM and save the config to the backend
+        async function saveConfig() {
+            const newConfig = {};
+            document.querySelectorAll('#model-list .model-item').forEach(modelItem => {
+                const modelName = modelItem.dataset.modelName;
+                const providers = {};
+                
+                modelItem.querySelectorAll('.provider-item').forEach(providerItem => {
+                    const providerName = providerItem.dataset.providerName;
+                    const isChecked = providerItem.querySelector('input[type="checkbox"]').checked;
+                    
+                    // Preserve original data, only update enable and order
+                    const originalProviderData = currentConfig[modelName]?.[providerName] || {};
+                    providers[providerName] = {
+                        ...originalProviderData,
+                        enable: isChecked
+                    };
+                });
+                newConfig[modelName] = providers;
+            });
+
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newConfig)
+                });
+                if (!response.ok) throw new Error('Failed to save config');
+                
+                // Update currentConfig with the newly saved structure
+                currentConfig = newConfig;
+                showStatusMessage();
+            } catch (error) {
+                console.error(error);
+                alert('Error saving configuration.');
+            }
+        }
+        
+        function showStatusMessage() {
+            const statusEl = document.getElementById('status');
+            statusEl.classList.add('show');
+            setTimeout(() => {
+                statusEl.classList.remove('show');
+            }, 2000);
+        }
+
+        // Fetch and update API usage stats
+        async function updateApiUsage() {
+            try {
+                const response = await fetch('/api_usage');
+                if (!response.ok) return;
+                const usageData = await response.json();
+                const stats = usageData.data;
+
+                for (const providerName in stats) {
+                    const usageEl = document.getElementById(`usage-${providerName}`);
+                    if (usageEl) {
+                        const providerStats = stats[providerName];
+                        const rpm = `${providerStats.rpm.current}/${providerStats.rpm.limit || '∞'}`;
+                        const tpm = `${providerStats.tpm.current}/${providerStats.tpm.limit || '∞'}`;
+                        const rpd = `${providerStats.rpd.current}/${providerStats.rpd.limit || '∞'}`;
+                        usageEl.textContent = `RPM: ${rpm} | TPM: ${tpm} | RPD: ${rpd}`;
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching API usage:', error);
+            }
+        }
+
+        // 健康检测函数
+        async function checkHealth(providerName, providerAlias) {
+            // 通过providerName找到对应的按钮和状态元素
+            // 首先找到触发该函数的按钮
+            const clickedBtn = event.target;
+            // 通过按钮找到其父元素providerItem
+            const providerItem = clickedBtn.closest('.provider-item');
+            // 从providerItem获取modelName
+            const modelName = providerItem.dataset.modelName;
+            
+            // 使用modelName和providerName组合的ID查找元素
+            const healthStatusSpan = document.getElementById(`health-${modelName}-${providerName}`);
+            const healthBtn = document.getElementById(`health-check-${modelName}-${providerName}`);
+            
+            // 检查元素是否存在
+            if (!healthBtn || !healthStatusSpan) {
+                console.error('无法找到健康检测按钮或状态元素:', providerName);
+                return;
+            }
+            
+            // 禁用按钮并显示检测中状态
+            healthBtn.disabled = true;
+            healthBtn.textContent = '检测中...';
+            healthStatusSpan.className = 'health-status';
+            healthStatusSpan.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/health_check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider: providerName, model: providerAlias })
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'healthy') {
+                    healthStatusSpan.textContent = `正常 (${result.response_time}ms)`;
+                    healthStatusSpan.className = 'health-status healthy';
+                } else {
+                    healthStatusSpan.textContent = `异常 (${result.error})`;
+                    healthStatusSpan.className = 'health-status unhealthy';
+                }
+            } catch (error) {
+                healthStatusSpan.textContent = `检测失败 (${error.message})`;
+                healthStatusSpan.className = 'health-status unhealthy';
+            } finally {
+                // 恢复按钮状态
+                healthBtn.disabled = false;
+                healthBtn.textContent = '检测';
+                healthStatusSpan.style.display = 'inline-block';
+            }
+        }
+
+        // 获取并显示错误日志
+        async function loadErrorLogs() {
+            try {
+                const response = await fetch('/api/error_logs');
+                if (!response.ok) throw new Error('Failed to load error logs');
+                const data = await response.json();
+                const errorLogs = data.error_logs;
+                
+                const errorLogsContainer = document.getElementById('errorLogsContainer');
+                const errorLogsContent = document.getElementById('errorLogsContent');
+                
+                if (errorLogs && errorLogs.length > 0) {
+                    // 显示错误日志
+                    errorLogsContainer.style.display = 'block';
+                    errorLogsContent.textContent = errorLogs.join('\n\n----------\n\n');
+                } else {
+                    // 隐藏错误日志区域
+                    errorLogsContainer.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error loading error logs:', error);
+            }
+        }
+
+        // 初始化页面
+        async function initialize() {
+            await loadConfig();
+            await loadErrorLogs();  // 加载错误日志
+            await updateApiUsage();
+            setInterval(updateApiUsage, 5000); // Refresh every 5 seconds
+        }
+
+        // 关闭错误日志显示
+        document.getElementById('closeErrorLogs').addEventListener('click', () => {
+            document.getElementById('errorLogsContainer').style.display = 'none';
+        });
+
+        // 重置速率限制
+        document.getElementById('resetRateLimitsBtn').addEventListener('click', async () => {
+            if (confirm('确定要重置所有速率限制吗？')) {
+                try {
+                    const response = await fetch('/api/reset_rate_limits', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to reset rate limits');
+                    
+                    const result = await response.json();
+                    alert(result.message || '速率限制已重置');
+                    
+                    // 重新加载API使用情况
+                    await updateApiUsage();
+                } catch (error) {
+                    console.error('Error resetting rate limits:', error);
+                    alert('重置速率限制时出错: ' + error.message);
+                }
+            }
+        });
+
+        initialize();
+    });
+</script>
+
+</body>
+</html>

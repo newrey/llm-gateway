@@ -1,0 +1,43 @@
+api_provider:
+  # OpenAI兼容的API提供商配置
+  # 每个提供商需要配置base_url和api_key
+  example_provider_1:
+    base_url: https://api.example.com/v1
+    api_key: your_api_key_here
+    limits:
+      rpm: 60    # 每分钟请求数限制
+      tpm: 10000 # 每分钟token数限制
+      rpd: 1000  # 每日请求数限制
+      tpr: 4000  # 每次请求最大token数
+  
+  example_provider_2:
+    base_url: https://api.another-provider.com/v1
+    api_key: your_another_api_key_here
+    limits:
+      rpm: 20
+      rpd: 50
+
+model_config:
+  # 模型配置，支持多个模型和多个提供商
+  # 每个模型可以配置多个提供商，系统会自动选择可用的提供商
+  gpt-4o:
+    example_provider_1:
+      alias: gpt-4o  # 可选，如果提供商使用的模型名称不同
+      enable: true   # 是否启用该提供商
+    example_provider_2:
+      alias: gpt-4o-pro
+      enable: false  # 默认禁用
+  
+  deepseek-v3:
+    example_provider_1:
+      alias: deepseek-v3.1
+      enable: true
+  
+  # 自动模式，系统会自动选择合适的模型
+  auto:
+    example_provider_1:
+      alias: gpt-4o
+      enable: true
+    example_provider_2:
+      alias: deepseek-v3.1
+      enable: true

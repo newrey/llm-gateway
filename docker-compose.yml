@@ -1,0 +1,30 @@
+name: llm-gateway
+services:
+  api:
+    image: newrey/llm-gateway:latest
+    container_name: llm-gateway
+    ports:
+      - '8100:8100'
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - llm-gateway-logs:/app/log
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8100/api_usage', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: llm-gateway-qdrant
+    ports:
+      - '6333:6333'
+      - '6334:6334'
+    restart: unless-stopped
+
+volumes:
+  llm-gateway-logs:
