@@ -29,6 +29,9 @@ COPY . .
 # 创建日志目录
 RUN mkdir -p /app/log
 
+# Cache the tiktoken encoding file
+RUN python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
+
 # 暴露端口
 EXPOSE 8100
 

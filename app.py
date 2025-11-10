@@ -323,7 +323,7 @@ config_lock = Lock()
 yaml = YAML()
 config_path = f"{script_dir}/config.yaml"
 
-with open(config_path, 'r') as file:
+with open(config_path, 'r', encoding='utf-8') as file:
     config = yaml.load(file)
 API_PROVIDER = config['api_provider']
 MODEL_CONFIG = config['model_config']
@@ -598,6 +598,7 @@ async def handle_post_request(request: Request, path: str):
             for model in MODEL_CONFIG:
                 api_provider = get_api_provider(model, request_body)
                 if api_provider:
+                    request_body['model'] = model
                     break
         else:
             api_provider = get_api_provider(model, request_body)
@@ -704,7 +705,7 @@ async def models(request: Request):
 @app.get("/api/config")
 async def get_config():
     """获取模型配置"""
-    with open(config_path, 'r') as file:
+    with open(config_path, 'r', encoding='utf-8') as file:
         config = yaml.load(file)
     MODEL_CONFIG = config['model_config']
     with config_lock:
@@ -722,12 +723,12 @@ async def update_config(request: Request):
         MODEL_CONFIG = new_model_config
         
         # 更新YAML文件
-        with open(config_path, 'r') as file:
+        with open(config_path, 'r', encoding='utf-8') as file:
             full_config = yaml.load(file)
         
         full_config['model_config'] = new_model_config
         
-        with open(config_path, 'w') as file:
+        with open(config_path, 'w', encoding='utf-8') as file:
             yaml.dump(full_config, file)
             
     return JSONResponse(content={"status": "success"})
@@ -753,7 +754,7 @@ async def get_error_logs():
     error_logs = []
     if os.path.exists(error_log_file):
         try:
-            with open(error_log_file, 'r', encoding='utf-8') as f:
+            with open(error_log_file, 'r', encoding='utf-8', encoding='utf-8') as f:
                 lines = f.readlines()
                 # 从后往前查找包含ERROR的行
                 for i in range(len(lines) - 1, -1, -1):
