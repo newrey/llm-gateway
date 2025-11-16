@@ -754,7 +754,7 @@ async def get_error_logs():
     error_logs = []
     if os.path.exists(error_log_file):
         try:
-            with open(error_log_file, 'r', encoding='utf-8', encoding='utf-8') as f:
+            with open(error_log_file, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
                 # 从后往前查找包含ERROR的行
                 for i in range(len(lines) - 1, -1, -1):
